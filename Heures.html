@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Suivi des Heures</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --red:#c8460a;--green:#16a34a;--gold:#b45309;
+  --blue:#1565c0;--nuit:#87ceeb;--pan:#ff8c00;
+  --border:#e0e0e0;--ok-bg:#f0fdf4;--sel-bg:#fff4ee;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;height:100dvh;display:flex;flex-direction:column;overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+/* ══ HEADER ══ */
+.hdr{background:#fff;border-bottom:2px solid var(--border);padding:10px 14px 7px;flex-shrink:0;display:flex;justify-content:space-between;align-items:center}
+.hdr-left h1{font-size:1.4rem;font-weight:900;letter-spacing:3px;color:#111;line-height:1;font-family:Arial,sans-serif}
+.hdr-left h1 em{color:var(--red);font-style:normal}
+.byline{font-style:italic;font-size:.6rem;color:#111;margin-top:2px;font-weight:400}
+
+/* ══ DROPDOWN ══ */
+.drop-wrap{position:relative}
+.drop-btn{font-family:Arial,sans-serif;font-size:.85rem;font-weight:700;letter-spacing:1px;color:var(--red);background:#f5f5f5;border:1px solid #ddd;border-radius:8px;padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+.drop-btn .arr{font-size:.55rem;color:#aaa;transition:transform .2s}
+.drop-btn.open .arr{transform:rotate(180deg)}
+.drop-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);overflow:hidden;z-index:400;min-width:110px;max-height:260px;overflow-y:auto}
+.drop-menu.open{display:block}
+.drop-menu.left{right:auto;left:0}
+.drop-opt{font-family:Arial,sans-serif;font-size:.82rem;font-weight:600;padding:9px 16px;cursor:pointer;color:#333;text-align:center;transition:background .1s}
+.drop-opt:hover{background:#fff4ee;color:var(--red)}
+.drop-opt.active{background:var(--red);color:#fff}
+
+/* ══ TABS ══ */
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);flex-shrink:0}
+.tab-btn{font-family:Arial,sans-serif;font-weight:700;font-size:.68rem;letter-spacing:.8px;text-transform:uppercase;padding:9px 18px;cursor:pointer;border:none;background:none;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab-btn.active{color:var(--red);border-bottom-color:var(--red)}
+
+/* ══ PAGES ══ */
+.page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+
+/* ══ TABLE WRAP ══ */
+.tw{flex:1;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:110px}
+
+/* ══ HEURES TABLE ══ */
+table.ht{width:100%;border-collapse:collapse;table-layout:fixed;min-width:380px}
+table.ht thead{position:sticky;top:0;z-index:10}
+table.ht thead tr{background:#fff;border-bottom:2px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+table.ht th{
+  font-family:Arial,sans-serif;font-size:.52rem;font-weight:800;
+  letter-spacing:.5px;text-transform:uppercase;color:#111;
+  padding:8px 3px;text-align:center;border-right:1px solid #ececec;
+  white-space:nowrap;user-select:none
+}
+table.ht th .sub{display:block;font-size:.4rem;font-style:italic;font-weight:400;color:#888;text-transform:none;letter-spacing:0;margin-top:1px}
+table.ht th:nth-child(1){width:28px}
+table.ht th:nth-child(2){width:38px}
+table.ht th:nth-child(3){width:15%}
+table.ht th:nth-child(4){width:12%}
+table.ht th:nth-child(5){width:12%}
+table.ht th:nth-child(6){width:12%;color:var(--blue)}
+table.ht th:nth-child(7){width:9%;color:var(--pan)}
+table.ht th:nth-child(8){width:12%;border-right:none}
+
+tbody tr.dr{border-bottom:1px solid #f2f2f2}
+tbody tr.dr.sel{background:var(--sel-bg)}
+tbody tr.dr.val{background:var(--ok-bg)}
+tbody tr.dr.val.sel{background:#dcfce7}
+
+table.ht td{padding:0 2px;text-align:center;border-right:1px solid #f2f2f2;vertical-align:middle;height:34px}
+table.ht td:nth-child(1){padding:0;border-right:1px solid var(--border)}
+table.ht td:nth-child(2){padding:0;border-right:1px solid var(--border)}
+table.ht td:last-child{border-right:none}
+/* nuit col bg tint */
+table.ht td:nth-child(6){background:#f0f8ff}
+/* paniers col bg tint */
+table.ht td:nth-child(7){background:#fff8f0}
+
+.vbtn{width:100%;height:34px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem}
+.vbtn .arr{display:none;color:var(--green);font-size:.9rem}
+.vbtn.ok .arr{display:block}
+.vbtn .dot{width:5px;height:5px;border-radius:50%;background:#ccc}
+.vbtn.ok .dot{display:none}
+
+.wkc{display:flex;align-items:center;justify-content:center;height:34px;width:100%;cursor:pointer;user-select:none}
+.wk{font-family:Arial,sans-serif;font-size:.75rem;font-weight:700;color:#666;pointer-events:none}
+.sel .wk{color:var(--red)}.sel .wkc{background:#ffe8dc}.val .wk{color:var(--green)}
+
+.ci{font-family:Arial,sans-serif;font-size:.75rem;font-weight:600;width:100%;background:transparent;border:none;text-align:center;color:#111;padding:0;height:34px;-moz-appearance:textfield}
+.ci::-webkit-outer-spin-button,.ci::-webkit-inner-spin-button{-webkit-appearance:none}
+.ci::placeholder{color:#ccc;font-weight:400}
+.ci:focus{outline:none;background:#fffaf7;color:var(--red)}
+/* H.Total text input special */
+.ci-h{font-weight:800;color:var(--red);letter-spacing:.3px}
+.ci-h:focus{background:#fff4ee;color:var(--red)}
+/* column-specific input colors */
+table.ht td:nth-child(6) .ci{color:var(--blue)}
+table.ht td:nth-child(7) .ci{color:var(--pan)}
+.ci.delta-inp{color:#6b21a8}
+.ci.delta-inp:focus{color:#6b21a8}
+
+.cmp{font-size:.7rem;font-weight:700;color:var(--gold)}
+.cmp.z{color:#ccc;font-weight:400}
+
+/* ══ SELECTION BAR ══ */
+.sel-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--red);box-shadow:0 -4px 20px rgba(0,0,0,.08);padding:8px 14px 14px;transform:translateY(100%);transition:transform .22s cubic-bezier(.34,1.4,.64,1);z-index:300}
+.sel-bar.visible{transform:translateY(0)}
+.sel-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.sel-title{font-family:Arial,sans-serif;font-size:.65rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--red)}
+.sel-close{font-family:Arial,sans-serif;font-size:.65rem;font-weight:700;background:#f5f5f5;border:1px solid var(--border);color:#555;border-radius:20px;padding:3px 10px;cursor:pointer}
+.sel-close:active{background:#fee;color:var(--red)}
+.sel-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px 5px}
+.sc{display:flex;flex-direction:column;align-items:center;gap:1px}
+.sc .v{font-family:Arial,sans-serif;font-size:.88rem;font-weight:800;color:#111;line-height:1.1}
+.sc .v.red{color:var(--red)}.sc .v.gld{color:var(--gold)}.sc .v.blu{color:var(--blue)}.sc .v.grn{color:var(--green)}.sc .v.orn{color:var(--pan)}
+.sc .k{font-size:.43rem;letter-spacing:.8px;text-transform:uppercase;color:#666;font-weight:600}
+
+/* ══ POPUP ══ */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-start;justify-content:center;padding-top:10px}
+.overlay.show{display:flex}
+.popup{background:#fff;border-radius:0 0 16px 16px;padding:18px 18px 24px;width:100%;max-width:480px;animation:slideDown .22s ease}
+@keyframes slideDown{from{transform:translateY(-40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.popup h2{font-family:Arial,sans-serif;font-size:1rem;font-weight:800;letter-spacing:1px;color:#111;margin-bottom:3px}
+.popup .sub-txt{font-size:.7rem;color:#666;margin-bottom:12px}
+.popup label{display:flex;align-items:center;gap:10px;font-size:.82rem;color:#111;margin-bottom:9px;cursor:pointer;font-weight:500}
+.popup label input[type=checkbox]{width:18px;height:18px;accent-color:var(--red);cursor:pointer}
+.jrow{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#111;margin:5px 0 10px;font-weight:500}
+.jrow input[type=number]{font-family:Arial,sans-serif;font-size:.9rem;font-weight:700;width:50px;padding:4px 6px;border:1px solid #ddd;border-radius:6px;text-align:center;color:var(--red);-moz-appearance:textfield}
+.jrow input::-webkit-outer-spin-button,.jrow input::-webkit-inner-spin-button{-webkit-appearance:none}
+.prev{background:#f9f9f9;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:.78rem;color:#111;line-height:1.8;font-weight:500}
+.prev strong{color:#111;font-weight:800}
+.prev .big{font-size:1.2rem;font-weight:900;color:var(--red)}
+.pbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pbtns button{font-family:Arial,sans-serif;font-size:.83rem;font-weight:700;padding:11px;border-radius:10px;border:none;cursor:pointer}
+.btn-no{background:#f0f0f0;color:#555}.btn-yes{background:var(--red);color:#fff}
+
+/* ══ CONGÉ PAGE ══ */
+.cg-wrap{flex:1;overflow-y:auto;padding:12px 12px 80px;-webkit-overflow-scrolling:touch}
+.cg-topbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.cg-topbar-lbl{font-size:.62rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#444}
+
+.droits-row{display:flex;align-items:center;gap:10px;background:#f9f9f9;border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin-bottom:10px;flex-wrap:wrap}
+.droits-row label{font-size:.65rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#444;white-space:nowrap}
+.droits-inp{font-family:Arial,sans-serif;font-size:1.3rem;font-weight:900;color:var(--red);background:transparent;border:none;border-bottom:2px solid var(--red);width:52px;text-align:center;padding:0;-moz-appearance:textfield}
+.droits-inp::-webkit-outer-spin-button,.droits-inp::-webkit-inner-spin-button{-webkit-appearance:none}
+.droits-inp:focus{outline:none}
+.droits-hint{font-size:.62rem;color:#555;flex:1;font-weight:500}
+
+.cg-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.cs{background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:7px 4px;text-align:center}
+.cs .cv{font-family:Arial,sans-serif;font-size:1.2rem;font-weight:900;color:#111;line-height:1}
+.cs .cv.red{color:var(--red)}.cs .cv.grn{color:var(--green)}.cs .cv.blu{color:var(--blue)}
+.cs .ck{font-size:.46rem;text-transform:uppercase;letter-spacing:.8px;color:#555;margin-top:2px;font-weight:700}
+
+/* FRACTIONNEMENT — ultra simple */
+.frac-box{border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:.72rem;color:#111;font-weight:600;display:flex;align-items:center;gap:10px}
+.frac-box.neutral{background:#f5f5f5;border:1px solid var(--border)}
+.frac-box.ok{background:#f0fdf4;border:1px solid #86efac}
+.frac-box.none{background:#f5f5f5;border:1px solid var(--border)}
+.frac-icon{font-size:1.4rem;flex-shrink:0}
+.frac-txt{line-height:1.5}
+.frac-txt strong{font-size:.9rem;color:var(--green)}
+.frac-txt .none-txt{color:#888}
+
+/* CONGÉ TABLE */
+table.ct{width:100%;border-collapse:collapse;font-size:.72rem;margin-bottom:6px}
+table.ct th{
+  background:#f0f0f0;font-family:Arial,sans-serif;
+  font-size:.56rem;font-weight:800;letter-spacing:.6px;
+  text-transform:uppercase;color:#111;
+  padding:7px 5px;text-align:center;border:1px solid var(--border);white-space:nowrap
+}
+table.ct td{border:1px solid var(--border);padding:2px 3px;text-align:center;height:30px;vertical-align:middle}
+table.ct td.ml{
+  font-family:Arial,sans-serif;font-weight:700;color:#111;
+  text-align:left;padding-left:10px;background:#fafafa;
+  font-size:.7rem;white-space:nowrap
+}
+table.ct td.ml.hiv{color:#1565c0}
+table.ct td.ml.est{color:#b45309}
+.ci-c{font-family:Arial,sans-serif;font-size:.74rem;font-weight:700;width:100%;background:transparent;border:none;text-align:center;color:#111;padding:0;height:26px;-moz-appearance:textfield}
+.ci-c::-webkit-outer-spin-button,.ci-c::-webkit-inner-spin-button{-webkit-appearance:none}
+.ci-c::placeholder{color:#ccc}
+.ci-c:focus{outline:none;color:var(--red)}
+table.ct tr.tot td{background:#111;color:#fff;font-weight:800;font-size:.7rem}
+table.ct tr.tot td.ml{background:#222;color:#eee}
+
+/* ══ COPYRIGHT ══ */
+.copyright{
+  font-family:Arial,sans-serif;font-size:.55rem;font-weight:600;
+  color:#111;text-align:center;
+  padding:5px 10px 8px;
+  border-top:1px solid var(--border);
+  background:#fff;flex-shrink:0;
+  letter-spacing:.3px;line-height:1.5
+}
+</style>
+</head>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => console.log('Service Worker enregistré !'))
+      .catch(err => console.error('Erreur :', err));
+  }
+</script>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-left">
+    <h1>SUIVI DES <em>HEURES</em></h1>
+    <div class="byline">By MAESTRE Mathieu 🐐</div>
+  </div>
+  <div class="drop-wrap" id="yrWrap">
+    <div class="drop-btn" id="yrBtn" onclick="toggleDrop('yr')">
+      <span id="yrDisp">2026</span><span class="arr">▼</span>
+    </div>
+    <div class="drop-menu" id="yrMenu"></div>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" id="tab-heures" onclick="showTab('heures')">⏱ Heures</button>
+  <button class="tab-btn"        id="tab-conge"  onclick="showTab('conge')">Congés</button>
+</div>
+
+<!-- PAGE HEURES -->
+<div class="page active" id="page-heures">
+  <div class="tw">
+    <table class="ht">
+      <thead><tr>
+        <th>✓</th>
+        <th>Sem<span class="sub">tap</span></th>
+        <th>H.Tot<span class="sub">saisie</span></th>
+        <th>25%<span class="sub">&gt;35h</span></th>
+        <th>50%<span class="sub">&gt;43h</span></th>
+        <th>H.Nuit<span class="sub">saisie</span></th>
+        <th>Pan.<span class="sub">nb</span></th>
+        <th>Delta<span class="sub">±h libre</span></th>
+      </tr></thead>
+      <tbody id="tBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PAGE CONGÉS -->
+<div class="page" id="page-conge">
+  <div class="cg-wrap" id="cgWrap"></div>
+</div>
+
+<!-- SELECTION BAR -->
+<div class="sel-bar" id="selBar">
+  <div class="sel-top">
+    <span class="sel-title">Résultat sélection</span>
+    <button class="sel-close" onclick="clearSel()">✕ Effacer</button>
+  </div>
+  <div class="sel-grid">
+    <div class="sc"><span class="v red" id="selN">0</span><span class="k">Semaines</span></div>
+    <div class="sc"><span class="v gld" id="sel25">—</span><span class="k">H.25%</span></div>
+    <div class="sc"><span class="v gld" id="sel50">—</span><span class="k">H.50%</span></div>
+    <div class="sc"><span class="v blu" id="selNt">—</span><span class="k">H.Nuit</span></div>
+    <div class="sc"><span class="v orn" id="selPa">—</span><span class="k">Paniers</span></div>
+  </div>
+</div>
+
+<!-- POPUP CONGÉ / FÉRIÉ -->
+<div class="overlay" id="overlay">
+  <div class="popup">
+    <h2>📅 CONGÉS / JOURS FÉRIÉS</h2>
+    <div class="sub-txt" id="pSub"></div>
+    <label><input type="checkbox" id="chkC"> Jour(s) de congé dans cette semaine</label>
+    <label><input type="checkbox" id="chkF"> Jour(s) férié(s) dans cette semaine</label>
+    <div class="jrow" id="jRow" style="display:none">
+      Nb de jours (hors samedi) :
+      <input type="number" id="nbJ" min="1" max="5" value="1">
+    </div>
+    <div class="prev" id="pPrev">Aucun jour — total inchangé.</div>
+    <div class="pbtns">
+      <button class="btn-no"  onclick="closePopup(false)">Annuler</button>
+      <button class="btn-yes" onclick="closePopup(true)">✓ Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- COPYRIGHT (shared, always visible) -->
+<div class="copyright">© Copyright Maestre Mathieu 🐐 — Tous droits réservés · The G.O.A.T c'est moi !!</div>
+
+<script>
+// ══ CONFIG ══
+const YR_MIN=2026,YR_MAX=2040;
+
+const CG_PERIODS=[];
+for(let y=2025;y<=2039;y++) CG_PERIODS.push(`${y}/${String(y+1).slice(-2)}`);
+
+// ══ STORAGE ══
+function dbLoad(){try{return JSON.parse(localStorage.getItem('mhv8')||'{}')}catch{return{}}}
+function dbSave(){localStorage.setItem('mhv8',JSON.stringify(DB))}
+let DB=dbLoad();
+function getRow(y,w){return DB[`h_${y}_${w}`]||{ok:false,total:'',nuit:'',paniers:'',delta:'',jours:0}}
+function setRow(y,w,d){DB[`h_${y}_${w}`]=d;dbSave()}
+function getCV(p,mi,col){return DB[`c_${p}_${mi}_${col}`]||''}
+function setCV(p,mi,col,v){DB[`c_${p}_${mi}_${col}`]=v;dbSave()}
+function getDef(p,f){return DB[`cd_${p}_${f}`]||''}
+function setDef(p,f,v){DB[`cd_${p}_${f}`]=v;dbSave()}
+
+// Restore last active year (saved in DB), fallback to current year
+const _savedYear = parseInt(DB['ui_activeYear'])||0;
+let activeYear = (_savedYear>=YR_MIN&&_savedYear<=YR_MAX) ? _savedYear : Math.min(Math.max(new Date().getFullYear(),YR_MIN),YR_MAX);
+// Restore last active congé period, fallback to first
+const _savedPer = DB['ui_activePer']||'';
+let activePer = CG_PERIODS.includes(_savedPer) ? _savedPer : CG_PERIODS[0];
+
+// ══ FORMULAS ══
+function h25(t){t=parseFloat(t)||0;return Math.max(0,Math.min(t-35,8))}
+function h50(t){t=parseFloat(t)||0;return Math.max(0,t-43)}
+function fmtH(v){
+  if(v===''||v===null||v===undefined)return'—';
+  v=parseFloat(v);if(isNaN(v)||v===0)return'—';
+  const a=Math.abs(v),h=Math.floor(a),m=Math.round((a-h)*60);
+  return h+'h'+(m>0?String(m).padStart(2,'0'):'');
+}
+// ══ PARSE HEURE INPUT ══
+// Accepte: "35h30", "35:30", "35h", "35.5", "35,5", "35"
+function parseHInput(str){
+  if(!str||str==='')return null;
+  str=str.trim().replace(',','.');
+  // format 35h30 ou 35H30
+  const mH=/^(\d+)[hH](\d{1,2})?$/;
+  const rH=str.match(mH);
+  if(rH){
+    const h=parseInt(rH[1])||0;
+    const m=parseInt(rH[2]||'0')||0;
+    return h+m/60;
+  }
+  // format 35:30
+  const mC=/^(\d+):(\d{1,2})$/;
+  const rC=str.match(mC);
+  if(rC){
+    const h=parseInt(rC[1])||0;
+    const m=parseInt(rC[2])||0;
+    return h+m/60;
+  }
+  // format décimal ou entier
+  const v=parseFloat(str);
+  return isNaN(v)?null:v;
+}
+
+// Format decimal → "35h30" for display inside input after blur
+function fmtInput(dec){
+  if(dec===null||dec===undefined||dec==='')return'';
+  dec=parseFloat(dec);if(isNaN(dec))return'';
+  const h=Math.floor(dec),m=Math.round((dec-h)*60);
+  return m>0?h+'h'+String(m).padStart(2,'0'):h+'h';
+}
+
+// ══ TABS ══
+function showTab(t){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+t).classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
+  document.getElementById('yrWrap').style.display=(t==='conge')?'none':'';
+  if(t==='conge'){buildConge();document.getElementById('selBar').classList.remove('visible')}
+}
+
+// ══ DROPDOWN ══
+function toggleDrop(id){
+  const menu=document.getElementById(id+'Menu'),btn=document.getElementById(id+'Btn');
+  if(id==='yr')buildYrMenu();
+  const open=menu.classList.toggle('open');btn.classList.toggle('open',open);
+}
+document.addEventListener('click',e=>{
+  ['yr','per'].forEach(id=>{
+    const m=document.getElementById(id+'Menu'),b=document.getElementById(id+'Btn');
+    if(m&&b&&!e.target.closest('#'+id+'Btn')&&!e.target.closest('#'+id+'Menu')){
+      m.classList.remove('open');b.classList.remove('open');
+    }
+  });
+});
+
+function buildYrMenu(){
+  const m=document.getElementById('yrMenu');m.innerHTML='';
+  for(let y=YR_MIN;y<=YR_MAX;y++){
+    const o=document.createElement('div');
+    o.className='drop-opt'+(y===activeYear?' active':'');
+    o.textContent=y;o.onclick=()=>selectYear(y);m.appendChild(o);
+  }
+}
+function selectYear(y){
+  activeYear=y;
+  DB['ui_activeYear']=y; dbSave();
+  document.getElementById('yrDisp').textContent=y;
+  document.getElementById('yrMenu').classList.remove('open');
+  document.getElementById('yrBtn').classList.remove('open');
+  clearSel();buildTable();
+  document.querySelector('.tw').scrollTop=0;
+}
+
+// ══ SELECTION ══
+let sel=new Set();
+function toggleRow(key,tr){
+  if(sel.has(key)){sel.delete(key);tr.classList.remove('sel')}
+  else{sel.add(key);tr.classList.add('sel')}
+  updateSelBar();
+}
+function clearSel(){
+  sel.clear();document.querySelectorAll('tr.dr.sel').forEach(r=>r.classList.remove('sel'));
+  updateSelBar();
+}
+function updateSelBar(){
+  const bar=document.getElementById('selBar');
+  if(sel.size===0){bar.classList.remove('visible');return}
+  bar.classList.add('visible');
+  let v25=0,v50=0,nuit=0,pan=0;
+  sel.forEach(k=>{
+    // key format is "YEAR_WEEK" e.g. "2026_3"
+    const us=k.indexOf('_');
+    const y=parseInt(k.slice(0,us));
+    const w=parseInt(k.slice(us+1));
+    const row=getRow(y,w);
+    const t=parseFloat(row.total)||0;
+    v25+=h25(t);
+    v50+=h50(t);
+    nuit+=parseFloat(row.nuit)||0;
+    pan+=parseFloat(row.paniers)||0;
+  });
+  document.getElementById('selN').textContent=sel.size;
+  document.getElementById('sel25').textContent=v25>0?fmtH(v25):'—';
+  document.getElementById('sel50').textContent=v50>0?fmtH(v50):'—';
+  document.getElementById('selNt').textContent=nuit>0?fmtH(nuit):'—';
+  document.getElementById('selPa').textContent=pan>0?pan:'—';
+}
+
+// ══ BUILD HEURES TABLE ══
+function buildTable(){
+  const tb=document.getElementById('tBody');tb.innerHTML='';
+  const y=activeYear;
+  for(let w=1;w<=52;w++){
+    const row=getRow(y,w),key=`${y}_${w}`;
+    const tr=document.createElement('tr');
+    tr.className='dr'+(sel.has(key)?' sel':'')+(row.ok?' val':'');
+
+    // ✓ validate
+    const t1=document.createElement('td');
+    const vb=document.createElement('button');vb.className='vbtn'+(row.ok?' ok':'');
+    vb.innerHTML='<span class="arr">▶</span><span class="dot"></span>';
+    vb.onclick=e=>{e.stopPropagation();row.ok=!row.ok;setRow(y,w,row);
+      vb.classList.toggle('ok',row.ok);tr.classList.toggle('val',row.ok)};
+    t1.appendChild(vb);tr.appendChild(t1);
+
+    // Semaine (tap = select)
+    const t2=document.createElement('td');
+    const wkd=document.createElement('div');wkd.className='wkc';
+    wkd.innerHTML=`<span class="wk">S${String(w).padStart(2,'0')}</span>`;
+    wkd.onclick=()=>toggleRow(key,tr);t2.appendChild(wkd);tr.appendChild(t2);
+
+    // H.Total
+    const t3=document.createElement('td');
+    const iT=mkInp(row.total,'',false);
+    iT.onchange=()=>{
+      const val=parseFloat(iT.value)||0;
+      openPopup(y,w,val,iT);
+    };
+    iT.onpointerdown=e=>e.stopPropagation();
+    t3.appendChild(iT);tr.appendChild(t3);
+
+    // 25%
+    const t4=document.createElement('td');t4.id=`c25_${key}`;renderCmp(t4,h25(row.total));tr.appendChild(t4);
+    // 50%
+    const t5=document.createElement('td');t5.id=`c50_${key}`;renderCmp(t5,h50(row.total));tr.appendChild(t5);
+
+    // H.Nuit (blue tint col)
+    const t6=document.createElement('td');
+    const iN=mkInp(row.nuit,'—',false);
+    iN.onchange=()=>{row.nuit=iN.value;setRow(y,w,row);updateSelBar()};
+    iN.onpointerdown=e=>e.stopPropagation();t6.appendChild(iN);tr.appendChild(t6);
+
+    // Paniers (orange tint col)
+    const t7=document.createElement('td');
+    const iP=mkInp(row.paniers,'—',true);
+    iP.onchange=()=>{row.paniers=iP.value;setRow(y,w,row);updateSelBar()};
+    iP.onpointerdown=e=>e.stopPropagation();t7.appendChild(iP);tr.appendChild(t7);
+
+    // Delta
+    const t8=document.createElement('td');
+    const iD=mkInp(row.delta,'—',false);
+    iD.classList.add('delta-inp');
+    iD.onchange=()=>{row.delta=iD.value;setRow(y,w,row)};
+    iD.onpointerdown=e=>e.stopPropagation();t8.appendChild(iD);tr.appendChild(t8);
+
+    tb.appendChild(tr);
+  }
+}
+function mkInp(val,ph,isInt){
+  const i=document.createElement('input');
+  i.type='number';i.className='ci';i.placeholder=ph;i.min='0';
+  i.step=isInt?'1':'0.5';i.value=val||'';return i;
+}
+function renderCmp(td,val){
+  td.innerHTML=`<span class="cmp${val===0?' z':''}">${val===0?'—':fmtH(val)}</span>`;
+}
+function refreshRow(y,w,tot){
+  const k=`${y}_${w}`;
+  const e4=document.getElementById(`c25_${k}`);
+  const e5=document.getElementById(`c50_${k}`);
+  if(e4)renderCmp(e4,h25(tot));if(e5)renderCmp(e5,h50(tot));
+}
+
+// ══ POPUP ══
+let pCtx=null;
+function openPopup(y,w,raw,inp){
+  pCtx={y,w,raw,inp};
+  const row=getRow(y,w);
+  document.getElementById('pSub').textContent=`Semaine S${String(w).padStart(2,'0')} — saisie : ${raw}h`;
+  document.getElementById('chkC').checked=false;document.getElementById('chkF').checked=false;
+  document.getElementById('nbJ').value=row.jours||1;
+  document.getElementById('jRow').style.display='none';
+  updPrev();document.getElementById('overlay').classList.add('show');
+}
+function updPrev(){
+  const hc=document.getElementById('chkC').checked,hf=document.getElementById('chkF').checked,any=hc||hf;
+  document.getElementById('jRow').style.display=any?'flex':'none';
+  if(!pCtx)return;
+  const raw=pCtx.raw,j=any?(parseInt(document.getElementById('nbJ').value)||1):0,tot=raw+j*7;
+  const pv=document.getElementById('pPrev');
+  if(!any){pv.innerHTML=`Aucun jour — total inchangé : <strong>${raw}h</strong>`;return}
+  pv.innerHTML=`${raw}h + <strong>${j}j × 7h = ${j*7}h</strong><br>Total : <span class="big">${tot}h</span><br>H.25% : <strong>${fmtH(h25(tot))||'—'}</strong> · H.50% : <strong>${fmtH(h50(tot))||'—'}</strong>`;
+}
+['chkC','chkF','nbJ'].forEach(id=>document.getElementById(id).addEventListener('input',updPrev));
+function closePopup(ok){
+  document.getElementById('overlay').classList.remove('show');
+  if(!ok||!pCtx){pCtx=null;return}
+  const hc=document.getElementById('chkC').checked,hf=document.getElementById('chkF').checked;
+  const j=(hc||hf)?(parseInt(document.getElementById('nbJ').value)||1):0;
+  const tot=pCtx.raw+j*7;
+  const{y,w,inp}=pCtx,row=getRow(y,w);
+  row.total=tot;row.jours=j;setRow(y,w,row);
+  inp.value=tot;
+  refreshRow(y,w,tot);
+  updateSelBar();
+  pCtx=null;
+}
+document.getElementById('overlay').onclick=e=>{if(e.target===document.getElementById('overlay'))closePopup(false)};
+
+// ══ CONGÉ PAGE ══
+// Estival = ☀️, Hivernal = ❄️
+const MONTHS=[
+  {l:'Juin',     h:false, icon:'☀️'},
+  {l:'Juillet',  h:false, icon:'☀️'},
+  {l:'Août',     h:false, icon:'☀️'},
+  {l:'Septembre',h:false, icon:'☀️'},
+  {l:'Octobre',  h:false, icon:'☀️'},
+  {l:'Novembre', h:true,  icon:'❄️'},
+  {l:'Décembre', h:true,  icon:'❄️'},
+  {l:'Janvier',  h:true,  icon:'❄️'},
+  {l:'Février',  h:true,  icon:'❄️'},
+  {l:'Mars',     h:true,  icon:'❄️'},
+  {l:'Avril',    h:true,  icon:'❄️'},
+  {l:'Mai',      h:false, icon:'☀️'},
+];
+
+function buildConge(){
+  const wrap=document.getElementById('cgWrap');wrap.innerHTML='';
+
+  // Top bar: label + period dropdown
+  const topbar=document.createElement('div');topbar.className='cg-topbar';
+  const lbl=document.createElement('span');lbl.className='cg-topbar-lbl';lbl.textContent='Période :';
+  topbar.appendChild(lbl);
+
+  const pw=document.createElement('div');pw.className='drop-wrap';
+  const pb=document.createElement('div');pb.className='drop-btn';pb.id='perBtn';
+  pb.innerHTML=`<span id="perDisp">${activePer}</span><span class="arr">▼</span>`;
+  pb.onclick=()=>togglePerDrop();
+  const pm=document.createElement('div');pm.className='drop-menu left';pm.id='perMenu';
+  CG_PERIODS.forEach(p=>{
+    const o=document.createElement('div');o.className='drop-opt'+(p===activePer?' active':'');
+    o.textContent=p;o.onclick=()=>selectPer(p);pm.appendChild(o);
+  });
+  pw.appendChild(pb);pw.appendChild(pm);topbar.appendChild(pw);
+  wrap.appendChild(topbar);
+
+  const content=document.createElement('div');content.id='cgContent';wrap.appendChild(content);
+  renderPer(activePer,content);
+}
+
+function togglePerDrop(){
+  const m=document.getElementById('perMenu'),b=document.getElementById('perBtn');
+  const open=m.classList.toggle('open');b.classList.toggle('open',open);
+}
+function selectPer(p){
+  activePer=p;
+  DB['ui_activePer']=p; dbSave();
+  document.getElementById('perDisp').textContent=p;
+  document.getElementById('perMenu').classList.remove('open');
+  document.getElementById('perBtn').classList.remove('open');
+  document.querySelectorAll('#perMenu .drop-opt').forEach(o=>o.classList.toggle('active',o.textContent===p));
+  renderPer(p,document.getElementById('cgContent'));
+}
+
+function renderPer(per,container){
+  container.innerHTML='';
+
+  // Droits card + jours été consécutifs
+  const droitsVal=parseInt(getDef(per,'droits'))||30;
+  const fracVal=parseInt(getDef(per,'frac'))||0;
+  const dr=document.createElement('div');dr.className='droits-row';
+  dr.innerHTML=`
+    <label>Total droits :</label>
+    <input type="number" class="droits-inp" id="droitsInp" min="1" max="60" value="${droitsVal}">
+    <label style="margin-left:12px">J. fractionnement :</label>
+    <input type="number" class="droits-inp" id="fracInp" min="0" max="2" value="${fracVal}" title="0, 1 ou 2 jours de fractionnement acquis">
+  `;
+  container.appendChild(dr);
+  document.getElementById('droitsInp').onchange=e=>{setDef(per,'droits',e.target.value);refreshPerData(per)};
+  document.getElementById('fracInp').onchange=e=>{setDef(per,'frac',e.target.value);refreshPerData(per)};
+
+  const info=document.createElement('div');
+  info.className='frac-box neutral';
+  info.innerHTML=`<div class="frac-icon">ℹ️</div><div class="frac-txt">Renseigne <strong>0, 1 ou 2</strong> dans "J. fractionnement" selon ce que ton employeur t'a accordé. Ces jours sont automatiquement ajoutés à ton solde.</div>`;
+  container.appendChild(info);
+
+  const sc=document.createElement('div');sc.className='cg-sum';sc.id=`cgSum_${per}`;
+  container.appendChild(sc);
+
+  const tbl=document.createElement('table');tbl.className='ct';
+  tbl.innerHTML=`<thead><tr>
+    <th>Mois</th>
+    <th>Jours posés<br><span style="font-weight:500;font-style:italic;font-size:.44rem">signés au travail</span></th>
+  </tr></thead>`;
+  const tb=document.createElement('tbody');
+
+  MONTHS.forEach((m,mi)=>{
+    const tr=document.createElement('tr');
+    const tdM=document.createElement('td');
+    tdM.className='ml '+(m.h?'hiv':'est');
+    tdM.textContent=`${m.icon} ${m.l}`;
+    tr.appendChild(tdM);
+    const tdP=document.createElement('td');
+    const iP=mkCI(getCV(per,mi,'poses'));
+    iP.onchange=()=>{setCV(per,mi,'poses',iP.value);refreshPerData(per)};
+    tdP.appendChild(iP);tr.appendChild(tdP);
+    tb.appendChild(tr);
+  });
+
+  const trT=document.createElement('tr');trT.className='tot';
+  trT.innerHTML=`<td class="ml">TOTAL</td><td id="cgTP_${per}">—</td>`;
+  tb.appendChild(trT);
+  tbl.appendChild(tb);container.appendChild(tbl);
+
+  refreshPerData(per);
+}
+
+function mkCI(val){
+  const i=document.createElement('input');
+  i.type='number';i.className='ci-c';i.placeholder='—';i.min='0';i.step='.5';i.value=val||'';return i;
+}
+
+function refreshPerData(per){
+  let totP=0;
+  MONTHS.forEach((_,mi)=>{
+    totP+=parseFloat(getCV(per,mi,'poses'))||0;
+  });
+  const droits=parseInt(getDef(per,'droits'))||30;
+  const frac=parseInt(getDef(per,'frac'))||0;
+  const reste=droits-totP+frac;
+
+  const tp=document.getElementById(`cgTP_${per}`);
+  if(tp)tp.textContent=totP||'—';
+
+  const sc=document.getElementById(`cgSum_${per}`);
+  if(sc){
+    sc.innerHTML=`
+      <div class="cs"><div class="cv">${droits+frac}</div><div class="ck">Droits + frac</div></div>
+      <div class="cs"><div class="cv red">${totP||0}</div><div class="ck">Posés</div></div>
+      <div class="cs"><div class="cv ${reste>=0?'grn':'red'}">${reste>=0?'+'+reste:reste}</div><div class="ck">Restants</div></div>
+    `;
+  }
+}
+
+// ══ INIT ══
+document.getElementById('yrDisp').textContent = activeYear;
+buildTable();
+</script>
+</body>
+</html>
